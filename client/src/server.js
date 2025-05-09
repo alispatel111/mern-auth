@@ -26,6 +26,7 @@ const API_ENDPOINTS = {
 
   // Health check
   HEALTH: `${API_BASE_URL}/api/health`,
+  TEST: `${API_BASE_URL}/api/test`,
 }
 
 // Helper function to make API requests
@@ -54,18 +55,27 @@ const makeRequest = async (endpoint, options = {}) => {
       },
     }
 
+    console.log(`Making request to: ${endpoint}`, fetchOptions)
+
     // Make the request
     const response = await fetch(endpoint, fetchOptions)
 
-    // Parse the JSON response
-    const data = await response.json()
-
-    // If the response is not ok, throw an error
+    // Check if response is ok before trying to parse JSON
     if (!response.ok) {
-      throw new Error(data.message || "Something went wrong")
+      // Try to parse JSON, but handle case where response is not JSON
+      let errorData
+      try {
+        errorData = await response.json()
+      } catch (e) {
+        // If response is not JSON, use text instead
+        const text = await response.text()
+        throw new Error(`Server returned non-JSON response: ${text.substring(0, 100)}...`)
+      }
+      throw new Error(errorData.message || `Request failed with status ${response.status}`)
     }
 
-    // Return the data
+    // Parse the JSON response
+    const data = await response.json()
     return data
   } catch (error) {
     console.error("API request error:", error)
