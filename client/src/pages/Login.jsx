@@ -112,10 +112,15 @@ export default function Login() {
     setIsLoading(true)
 
     try {
+      console.log("Attempting login with:", { email: formData.email, password: "***" })
+      console.log("Login endpoint:", API_ENDPOINTS.LOGIN)
+
       const data = await makeRequest(API_ENDPOINTS.LOGIN, {
         method: "POST",
         body: JSON.stringify(formData),
       })
+
+      console.log("Login successful, received data:", data)
 
       // Store token in localStorage
       localStorage.setItem("token", data.token)
@@ -124,11 +129,12 @@ export default function Login() {
       toast.success("Login successful!")
       navigate("/dashboard")
     } catch (error) {
-      toast.error(error.message)
-      setErrors({ general: error.message })
+      console.error("Login error:", error)
+      toast.error(error.message || "Login failed")
+      setErrors({ general: error.message || "Login failed" })
 
       // Check if the user needs to verify their email
-      if (error.message.includes("verify your email")) {
+      if (error.message && error.message.includes("verify your email")) {
         setNeedsVerification(true)
         setVerificationEmail(formData.email)
       }
@@ -148,23 +154,14 @@ export default function Login() {
 
     setIsResendingVerification(true)
     try {
-      const response = await fetch("/api/auth/resend-verification", {
+      await makeRequest(API_ENDPOINTS.RESEND_VERIFICATION, {
         method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
         body: JSON.stringify({ email: verificationEmail }),
       })
 
-      const data = await response.json()
-
-      if (!response.ok) {
-        throw new Error(data.message || "Failed to resend verification email")
-      }
-
       toast.success("Verification email has been resent. Please check your inbox.")
     } catch (error) {
-      toast.error(error.message)
+      toast.error(error.message || "Failed to resend verification email")
     } finally {
       setIsResendingVerification(false)
     }
