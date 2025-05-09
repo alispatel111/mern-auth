@@ -2,9 +2,10 @@
 
 import { useState, useEffect } from "react"
 import { Link, useNavigate } from "react-router-dom"
+import { toast } from "react-hot-toast"
 import { User, Mail, Lock, Eye, EyeOff, Check, ArrowRight, AlertCircle, Loader, CheckCircle } from "lucide-react"
 import "../styles/signup-redesign.css"
-import { API_ENDPOINTS, makeRequest } from "../server.js"
+import { API_ENDPOINTS } from "../server.js"
 
 const Signup = () => {
   const [formData, setFormData] = useState({
@@ -189,8 +190,18 @@ const Signup = () => {
     setFormState((prev) => ({ ...prev, isSubmitting: true }))
 
     try {
-      await makeRequest(API_ENDPOINTS.REGISTER, {
+      console.log("Attempting to register with:", {
+        name: formData.name,
+        email: formData.email,
+        password: "***",
+      })
+
+      // Make the signup request
+      const response = await fetch(API_ENDPOINTS.REGISTER, {
         method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
         body: JSON.stringify({
           name: formData.name,
           email: formData.email,
@@ -198,19 +209,42 @@ const Signup = () => {
         }),
       })
 
+      // Log the raw response for debugging
+      const responseText = await response.text()
+      console.log("Raw signup response:", responseText)
+
+      // Parse the response
+      let data
+      try {
+        data = JSON.parse(responseText)
+      } catch (e) {
+        throw new Error(`Server returned invalid JSON: ${responseText.substring(0, 100)}...`)
+      }
+
+      // Check if response is ok
+      if (!response.ok) {
+        throw new Error(data.message || `Request failed with status ${response.status}`)
+      }
+
+      console.log("Registration successful:", data)
+
       // Show success state
       setFormState((prev) => ({ ...prev, isSuccess: true }))
+      toast.success("Account created successfully! Please check your email to verify your account.")
 
       // Redirect after showing success animation
       setTimeout(() => {
         navigate("/login")
       }, 2000)
     } catch (error) {
+      console.error("Registration error:", error)
+      toast.error(error.message || "Failed to create account")
+
       setFormState((prev) => ({
         ...prev,
         errors: {
           ...prev.errors,
-          general: error.message,
+          general: error.message || "Failed to create account",
         },
         isSubmitting: false,
       }))
@@ -221,6 +255,8 @@ const Signup = () => {
       setTimeout(() => {
         form.classList.remove("signup-redesign-shake")
       }, 600)
+    } finally {
+      setFormState((prev) => ({ ...prev, isSubmitting: false }))
     }
   }
 
@@ -249,8 +285,9 @@ const Signup = () => {
             </div>
             <h3 className="signup-redesign-success-title">Account Created!</h3>
             <p className="signup-redesign-success-message">
-              Your account has been successfully created. Redirecting you to login...
+              Your account has been successfully created. Please check your email to verify your account.
             </p>
+            <p className="signup-redesign-success-message">Redirecting you to login...</p>
           </div>
         ) : (
           <form className="signup-redesign-form" onSubmit={handleSubmit}>
