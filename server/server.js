@@ -44,10 +44,10 @@ mongoose
   .catch((err) => console.error("MongoDB connection error:", err))
 
 // API routes
-app.use("/api/auth", authRoutes)
+app.use("/", authRoutes)
 
 // Test route to verify server is working
-app.get("https://mern-auth-amkyb3akn-alispatel111s-projects.vercel.app", (req, res) => {
+app.get("", (req, res) => {
   res.json({ message: "Server is working!" })
 })
 
