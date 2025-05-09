@@ -60,22 +60,25 @@ const makeRequest = async (endpoint, options = {}) => {
     // Make the request
     const response = await fetch(endpoint, fetchOptions)
 
-    // Check if response is ok before trying to parse JSON
-    if (!response.ok) {
-      // Try to parse JSON, but handle case where response is not JSON
-      let errorData
-      try {
-        errorData = await response.json()
-      } catch (e) {
-        // If response is not JSON, use text instead
-        const text = await response.text()
-        throw new Error(`Server returned non-JSON response: ${text.substring(0, 100)}...`)
-      }
-      throw new Error(errorData.message || `Request failed with status ${response.status}`)
+    // Log the raw response for debugging
+    const responseClone = response.clone()
+    const rawText = await responseClone.text()
+    console.log(`Raw response from ${endpoint}:`, rawText)
+
+    // Try to parse as JSON
+    let data
+    try {
+      data = JSON.parse(rawText)
+    } catch (e) {
+      console.error("Failed to parse response as JSON:", e)
+      throw new Error(`Server returned invalid JSON: ${rawText.substring(0, 100)}...`)
     }
 
-    // Parse the JSON response
-    const data = await response.json()
+    // Check if response is ok
+    if (!response.ok) {
+      throw new Error(data.message || `Request failed with status ${response.status}`)
+    }
+
     return data
   } catch (error) {
     console.error("API request error:", error)
