@@ -19,7 +19,8 @@ const app = express()
 // Middleware
 app.use(
   cors({
-    origin: ["http://localhost:5173", "https://mern-auth-app-client.vercel.app", "*"],
+    origin: "*",
+    methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
     credentials: true,
   }),
 )
@@ -87,6 +88,11 @@ app.get("/api/health", (req, res) => {
   res.status(200).json(health)
 })
 
+// Root route for testing
+app.get("/", (req, res) => {
+  res.json({ message: "MERN Auth API is running!" })
+})
+
 // Route debugging - log all registered routes
 console.log("Registered routes:")
 app._router.stack.forEach((middleware) => {
@@ -142,6 +148,9 @@ app.use((err, req, res, next) => {
           message: err.message,
           stack: err.stack,
           time: new Date().toISOString(),
+          path: req.path,
+          method: req.method,
+          headers: req.headers,
         },
         null,
         2,
