@@ -44,7 +44,7 @@ mongoose
   .catch((err) => console.error("MongoDB connection error:", err))
 
 // API routes
-app.use("/api/auth", authRoutes)
+app.use("/", authRoutes)
 
 // Test route to verify server is working
 app.get("", (req, res) => {
