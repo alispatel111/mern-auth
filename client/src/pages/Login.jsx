@@ -115,6 +115,15 @@ export default function Login() {
       console.log("Attempting login with:", { email: formData.email, password: "***" })
       console.log("Login endpoint:", API_ENDPOINTS.LOGIN)
 
+      // Test the API connection first
+      try {
+        const testResponse = await fetch(API_ENDPOINTS.TEST)
+        const testText = await testResponse.text()
+        console.log("Test API response:", testText)
+      } catch (testError) {
+        console.error("Test API failed:", testError)
+      }
+
       const data = await makeRequest(API_ENDPOINTS.LOGIN, {
         method: "POST",
         body: JSON.stringify(formData),
