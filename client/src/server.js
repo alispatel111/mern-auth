@@ -1,77 +1,52 @@
-// Configuration file for API endpoints
-
-// Backend URL configuration
-const API_BASE_URL =
-  process.env.NODE_ENV === "production" ? "https://mern-auth-api-zeta.vercel.app" : "http://localhost:5000"
+// API configuration
+const API_BASE_URL = "https://mern-auth-api-zeta.vercel.app/api"
 
 // API endpoints
-const API_ENDPOINTS = {
-  // Auth endpoints
-  LOGIN: `${API_BASE_URL}/api/auth/login`,
-  REGISTER: `${API_BASE_URL}/api/auth/signup`,
-  LOGOUT: `${API_BASE_URL}/api/auth/logout`,
-  VERIFY_EMAIL: `${API_BASE_URL}/api/auth/verify-email`,
-  FORGOT_PASSWORD: `${API_BASE_URL}/api/auth/forgot-password`,
-  RESET_PASSWORD: `${API_BASE_URL}/api/auth/reset-password`,
-  VERIFY_OTP: `${API_BASE_URL}/api/auth/verify-otp`,
-  RESEND_VERIFICATION: `${API_BASE_URL}/api/auth/resend-verification`,
-  VERIFY_RESET_TOKEN: `${API_BASE_URL}/api/auth/verify-reset-token`,
-
-  // User endpoints
-  GET_PROFILE: `${API_BASE_URL}/api/auth/profile`,
-  UPDATE_PROFILE: `${API_BASE_URL}/api/auth/profile`,
-
-  // Google auth
-  GOOGLE_AUTH: `${API_BASE_URL}/api/auth/google`,
-
-  // Health check
-  HEALTH: `${API_BASE_URL}/api/health`,
-  TEST: `${API_BASE_URL}/api/test`,
+export const API_ENDPOINTS = {
+  TEST: `${API_BASE_URL}/test`,
+  REGISTER: `${API_BASE_URL}/auth/signup`,
+  LOGIN: `${API_BASE_URL}/auth/login`,
+  VERIFY_EMAIL: `${API_BASE_URL}/auth/verify-email`,
+  RESEND_VERIFICATION: `${API_BASE_URL}/auth/resend-verification`,
+  FORGOT_PASSWORD: `${API_BASE_URL}/auth/forgot-password`,
+  VERIFY_OTP: `${API_BASE_URL}/auth/verify-otp`,
+  RESET_PASSWORD: `${API_BASE_URL}/auth/reset-password`,
+  PROFILE: `${API_BASE_URL}/auth/profile`,
+  UPDATE_PROFILE: `${API_BASE_URL}/auth/profile`,
+  VERIFY_TOKEN: `${API_BASE_URL}/auth/verify-token`,
 }
 
 // Helper function to make API requests
-const makeRequest = async (endpoint, options = {}) => {
+export const makeRequest = async (url, options = {}) => {
+  console.log(`Making request to: ${url}`, options)
+
   try {
-    // Default options for fetch
-    const defaultOptions = {
-      headers: {
+    // Set default headers if not provided
+    if (!options.headers) {
+      options.headers = {
         "Content-Type": "application/json",
-      },
+      }
     }
 
     // Add authorization header if token exists
     const token = localStorage.getItem("token")
-    if (token) {
-      defaultOptions.headers.Authorization = `Bearer ${token}`
+    if (token && !options.headers.Authorization) {
+      options.headers.Authorization = `Bearer ${token}`
     }
-
-    // Merge default options with provided options
-    const fetchOptions = {
-      ...defaultOptions,
-      ...options,
-      headers: {
-        ...defaultOptions.headers,
-        ...options.headers,
-      },
-    }
-
-    console.log(`Making request to: ${endpoint}`, fetchOptions)
 
     // Make the request
-    const response = await fetch(endpoint, fetchOptions)
+    const response = await fetch(url, options)
 
     // Log the raw response for debugging
-    const responseClone = response.clone()
-    const rawText = await responseClone.text()
-    console.log(`Raw response from ${endpoint}:`, rawText)
+    const responseText = await response.text()
+    console.log(`Raw response from ${url}:`, responseText)
 
-    // Try to parse as JSON
+    // Parse the response as JSON
     let data
     try {
-      data = JSON.parse(rawText)
+      data = JSON.parse(responseText)
     } catch (e) {
-      console.error("Failed to parse response as JSON:", e)
-      throw new Error(`Server returned invalid JSON: ${rawText.substring(0, 100)}...`)
+      throw new Error(`Server returned invalid JSON: ${responseText.substring(0, 100)}...`)
     }
 
     // Check if response is ok
@@ -81,10 +56,7 @@ const makeRequest = async (endpoint, options = {}) => {
 
     return data
   } catch (error) {
-    console.error("API request error:", error)
+    console.error(`Error making request to ${url}:`, error)
     throw error
   }
 }
-
-// Export the API endpoints and helper function
-export { API_ENDPOINTS, makeRequest, API_BASE_URL }
