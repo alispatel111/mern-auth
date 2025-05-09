@@ -5,6 +5,7 @@ import { Link, useNavigate } from "react-router-dom"
 import { toast } from "react-hot-toast"
 import { Mail, ArrowLeft, Send, CheckCircle, KeyRound } from "lucide-react"
 import "../styles/forgot-password.css"
+import { API_ENDPOINTS, makeRequest } from "../server.js"
 
 export default function ForgotPassword() {
   const [email, setEmail] = useState("")
@@ -105,25 +106,13 @@ export default function ForgotPassword() {
     setIsLoading(true)
 
     try {
-      const response = await fetch("/api/auth/forgot-password", {
+      await makeRequest(API_ENDPOINTS.FORGOT_PASSWORD, {
         method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
         body: JSON.stringify({ email }),
       })
 
-      const data = await response.json()
-
-      if (!response.ok) {
-        throw new Error(data.message || "Failed to send OTP")
-      }
-
       toast.success("OTP sent to your email address")
       setStep(2)
-
-      // For development, show OTP if available
-      // The development OTP toast has been removed for security
     } catch (error) {
       toast.error(error.message)
       setErrors({ general: error.message })
@@ -153,19 +142,10 @@ export default function ForgotPassword() {
     setIsLoading(true)
 
     try {
-      const response = await fetch("/api/auth/verify-otp", {
+      const data = await makeRequest(API_ENDPOINTS.VERIFY_OTP, {
         method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
         body: JSON.stringify({ email, otp }),
       })
-
-      const data = await response.json()
-
-      if (!response.ok) {
-        throw new Error(data.message || "Invalid OTP")
-      }
 
       toast.success("OTP verified successfully")
       setResetToken(data.resetToken)
@@ -199,19 +179,10 @@ export default function ForgotPassword() {
     setIsLoading(true)
 
     try {
-      const response = await fetch("/api/auth/reset-password", {
+      const data = await makeRequest(API_ENDPOINTS.RESET_PASSWORD, {
         method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
         body: JSON.stringify({ token: resetToken, password: newPassword }),
       })
-
-      const data = await response.json()
-
-      if (!response.ok) {
-        throw new Error(data.message || "Failed to reset password")
-      }
 
       // Auto-login: Store token and user data
       if (data.token && data.user) {

@@ -11,6 +11,7 @@ import {
   processGoogleCredential,
 } from "../utils/googleAuth"
 import "../styles/login.css"
+import { API_ENDPOINTS, makeRequest } from "../server.js"
 
 export default function Login() {
   const [formData, setFormData] = useState({
@@ -111,25 +112,10 @@ export default function Login() {
     setIsLoading(true)
 
     try {
-      const response = await fetch("/api/auth/login", {
+      const data = await makeRequest(API_ENDPOINTS.LOGIN, {
         method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
         body: JSON.stringify(formData),
       })
-
-      const data = await response.json()
-
-      if (!response.ok) {
-        // Check if the user needs to verify their email
-        if (data.needsVerification) {
-          setNeedsVerification(true)
-          setVerificationEmail(data.email)
-          throw new Error("Please verify your email before logging in")
-        }
-        throw new Error(data.message || "Login failed")
-      }
 
       // Store token in localStorage
       localStorage.setItem("token", data.token)
@@ -140,6 +126,12 @@ export default function Login() {
     } catch (error) {
       toast.error(error.message)
       setErrors({ general: error.message })
+
+      // Check if the user needs to verify their email
+      if (error.message.includes("verify your email")) {
+        setNeedsVerification(true)
+        setVerificationEmail(formData.email)
+      }
 
       // Add shake animation to form
       document.querySelector("form").classList.add("shake")

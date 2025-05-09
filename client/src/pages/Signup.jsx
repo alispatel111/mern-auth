@@ -4,6 +4,7 @@ import { useState, useEffect } from "react"
 import { Link, useNavigate } from "react-router-dom"
 import { User, Mail, Lock, Eye, EyeOff, Check, ArrowRight, AlertCircle, Loader, CheckCircle } from "lucide-react"
 import "../styles/signup-redesign.css"
+import { API_ENDPOINTS, makeRequest } from "../server.js"
 
 const Signup = () => {
   const [formData, setFormData] = useState({
@@ -188,23 +189,14 @@ const Signup = () => {
     setFormState((prev) => ({ ...prev, isSubmitting: true }))
 
     try {
-      const response = await fetch("/api/auth/signup", {
+      await makeRequest(API_ENDPOINTS.REGISTER, {
         method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
         body: JSON.stringify({
           name: formData.name,
           email: formData.email,
           password: formData.password,
         }),
       })
-
-      const data = await response.json()
-
-      if (!response.ok) {
-        throw new Error(data.message || "Signup failed")
-      }
 
       // Show success state
       setFormState((prev) => ({ ...prev, isSuccess: true }))

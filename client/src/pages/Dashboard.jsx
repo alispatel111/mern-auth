@@ -75,6 +75,7 @@ import { format, subDays } from "date-fns"
 import DatePicker from "react-datepicker"
 import "react-datepicker/dist/react-datepicker.css"
 import "../styles/dashboard.css"
+import { API_ENDPOINTS, makeRequest } from "../server.js"
 
 // Register ChartJS components
 ChartJS.register(
@@ -241,53 +242,47 @@ export default function Dashboard() {
         return
       }
 
-      const response = await fetch("/api/auth/profile", {
-        headers: {
-          Authorization: `Bearer ${token}`,
-        },
-      })
+      try {
+        const userData = await makeRequest(API_ENDPOINTS.GET_PROFILE)
+        setUser(userData)
 
-      if (!response.ok) {
-        if (response.status === 401) {
-          // Token expired or invalid
+        // Update profile state with user data
+        setProfile({
+          name: userData.name || "",
+          email: userData.email || "",
+          phone: userData.phone || "",
+          birthday: userData.birthday || "",
+          location: userData.location || "New York, USA",
+          bio: "I'm a software developer with a passion for creating amazing user experiences.",
+          occupation: userData.occupation || "Software Developer",
+          website: "https://example.com",
+          joinDate: userData.joinDate || "January 2023",
+          socialLinks: {
+            twitter: userData.socialLinks?.twitter || "https://twitter.com/username",
+            linkedin: userData.socialLinks?.linkedin || "https://linkedin.com/in/username",
+            github: userData.socialLinks?.github || "https://github.com/username",
+          },
+        })
+
+        // Set profile image if available
+        if (userData.profileImage) {
+          setProfileImage(userData.profileImage)
+        } else {
+          setProfileImage("/diverse-group.png")
+        }
+
+        // Update localStorage
+        localStorage.setItem("user", JSON.stringify(userData))
+      } catch (error) {
+        // If unauthorized, redirect to login
+        if (error.message.includes("unauthorized") || error.message.includes("invalid token")) {
           localStorage.removeItem("token")
           localStorage.removeItem("user")
           navigate("/login")
           return
         }
-        throw new Error("Failed to fetch profile")
+        throw error
       }
-
-      const userData = await response.json()
-      setUser(userData)
-
-      // Update profile state with user data
-      setProfile({
-        name: userData.name || "",
-        email: userData.email || "",
-        phone: userData.phone || "",
-        birthday: userData.birthday || "",
-        location: userData.location || "New York, USA",
-        bio: userData.bio || "I'm a software developer with a passion for creating amazing user experiences.",
-        occupation: userData.occupation || "Software Developer",
-        website: userData.website || "https://example.com",
-        joinDate: userData.joinDate || "January 2023",
-        socialLinks: {
-          twitter: userData.socialLinks?.twitter || "https://twitter.com/username",
-          linkedin: userData.socialLinks?.linkedin || "https://linkedin.com/in/username",
-          github: userData.socialLinks?.github || "https://github.com/username",
-        },
-      })
-
-      // Set profile image if available
-      if (userData.profileImage) {
-        setProfileImage(userData.profileImage)
-      } else {
-        setProfileImage("/diverse-group.png")
-      }
-
-      // Update localStorage
-      localStorage.setItem("user", JSON.stringify(userData))
     } catch (error) {
       console.error("Error fetching profile:", error)
       toast.error("Failed to load profile data")
@@ -360,53 +355,6 @@ export default function Dashboard() {
   const handleSaveProfile = async () => {
     setIsLoading(true)
     try {
-      const token = localStorage.getItem("token")
-      if (!token) {
-        navigate("/login")
-        return
-      }
-
-      // Prepare data to send to server
-      // Check if profileImage is a base64 string that's too large
-      let imageToSend = profileImage
-
-      // If it's a base64 string and very large, we should optimize it
-      if (profileImage && profileImage.startsWith("data:image") && profileImage.length > 1000000) {
-        // Create a temporary canvas to resize the image
-        const canvas = document.createElement("canvas")
-        const img = new Image()
-
-        // Create a promise to handle the image loading
-        await new Promise((resolve) => {
-          img.onload = () => {
-            // Calculate new dimensions (max 500px width/height)
-            let width = img.width
-            let height = img.height
-            const maxSize = 500
-
-            if (width > height && width > maxSize) {
-              height = (height / width) * maxSize
-              width = maxSize
-            } else if (height > maxSize) {
-              width = (width / height) * maxSize
-              height = maxSize
-            }
-
-            canvas.width = width
-            canvas.height = height
-
-            // Draw and resize image on canvas
-            const ctx = canvas.getContext("2d")
-            ctx.drawImage(img, 0, 0, width, height)
-
-            // Get the resized image as base64 with reduced quality
-            imageToSend = canvas.toDataURL("image/jpeg", 0.7)
-            resolve()
-          }
-          img.src = profileImage
-        })
-      }
-
       // Prepare profile data with optimized image
       const profileData = {
         name: profile.name,
@@ -417,24 +365,14 @@ export default function Dashboard() {
         bio: profile.bio,
         occupation: profile.occupation,
         website: profile.website,
-        profileImage: imageToSend,
+        profileImage: profileImage,
         socialLinks: profile.socialLinks,
       }
 
-      const response = await fetch("/api/auth/profile", {
+      const data = await makeRequest(API_ENDPOINTS.UPDATE_PROFILE, {
         method: "PUT",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${token}`,
-        },
         body: JSON.stringify(profileData),
       })
-
-      if (!response.ok) {
-        throw new Error("Failed to update profile")
-      }
-
-      const data = await response.json()
 
       // Update user state and localStorage
       setUser(data.user)
@@ -459,7 +397,7 @@ export default function Dashboard() {
         phone: user.phone || "",
         birthday: user.birthday || "",
         location: user.location || "New York, USA",
-        bio: user.bio || "I'm a software developer with a passion for creating amazing user experiences.",
+        bio: "I'm a software developer with a passion for creating amazing user experiences.",
         occupation: user.occupation || "Software Developer",
         website: user.website || "https://example.com",
         joinDate: user.joinDate || "January 2023",
