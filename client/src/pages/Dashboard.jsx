@@ -191,7 +191,7 @@ export default function Dashboard() {
   const [activeSection, setActiveSection] = useState("overview")
   const [isEditing, setIsEditing] = useState(false)
   const [profileImage, setProfileImage] = useState("")
-  const [isLoading, setIsLoading] = useState(true)
+  const [isLoading, setIsLoading] = useState(false)
   const [searchTerm, setSearchTerm] = useState("")
   const [dateRange, setDateRange] = useState([new Date(subDays(new Date(), 30)), new Date()])
   const [startDate, endDate] = dateRange
@@ -205,7 +205,6 @@ export default function Dashboard() {
     priceRange: [0, 1000],
     dateRange: [subDays(new Date(), 30), new Date()],
   })
-  const [error, setError] = useState(null)
 
   const fileInputRef = useRef(null)
   const navigate = useNavigate()
@@ -237,63 +236,14 @@ export default function Dashboard() {
   // Fetch user profile from server
   const fetchUserProfile = async () => {
     try {
-      setIsLoading(true)
       const token = localStorage.getItem("token")
-
       if (!token) {
-        console.log("No token found, redirecting to login")
         navigate("/login")
         return
       }
 
-      console.log("Token found, fetching user profile")
-
-      // Try to get user from localStorage first
-      const storedUser = localStorage.getItem("user")
-      if (storedUser) {
-        try {
-          const parsedUser = JSON.parse(storedUser)
-          console.log("User found in localStorage:", parsedUser)
-          setUser(parsedUser)
-
-          // Update profile state with user data
-          setProfile({
-            name: parsedUser.name || "",
-            email: parsedUser.email || "",
-            phone: parsedUser.phone || "",
-            birthday: parsedUser.birthday || "",
-            location: parsedUser.location || "New York, USA",
-            bio: parsedUser.bio || "I'm a software developer with a passion for creating amazing user experiences.",
-            occupation: parsedUser.occupation || "Software Developer",
-            website: parsedUser.website || "https://example.com",
-            joinDate: parsedUser.joinDate || "January 2023",
-            socialLinks: {
-              twitter: parsedUser.socialLinks?.twitter || "https://twitter.com/username",
-              linkedin: parsedUser.socialLinks?.linkedin || "https://linkedin.com/in/username",
-              github: parsedUser.socialLinks?.github || "https://github.com/username",
-            },
-          })
-
-          // Set profile image if available
-          if (parsedUser.profileImage) {
-            setProfileImage(parsedUser.profileImage)
-          } else {
-            setProfileImage("/diverse-group.png")
-          }
-
-          setIsLoading(false)
-          return
-        } catch (e) {
-          console.error("Error parsing stored user:", e)
-        }
-      }
-
-      // If no stored user or parsing failed, fetch from API
       try {
-        console.log("Fetching user profile from API")
         const userData = await makeRequest(API_ENDPOINTS.GET_PROFILE)
-        console.log("User profile fetched successfully:", userData)
-
         setUser(userData)
 
         // Update profile state with user data
@@ -303,9 +253,9 @@ export default function Dashboard() {
           phone: userData.phone || "",
           birthday: userData.birthday || "",
           location: userData.location || "New York, USA",
-          bio: userData.bio || "I'm a software developer with a passion for creating amazing user experiences.",
+          bio: "I'm a software developer with a passion for creating amazing user experiences.",
           occupation: userData.occupation || "Software Developer",
-          website: userData.website || "https://example.com",
+          website: "https://example.com",
           joinDate: userData.joinDate || "January 2023",
           socialLinks: {
             twitter: userData.socialLinks?.twitter || "https://twitter.com/username",
@@ -324,31 +274,22 @@ export default function Dashboard() {
         // Update localStorage
         localStorage.setItem("user", JSON.stringify(userData))
       } catch (error) {
-        console.error("Error fetching profile from API:", error)
-
         // If unauthorized, redirect to login
-        if (error.message && (error.message.includes("unauthorized") || error.message.includes("invalid token"))) {
-          console.log("Unauthorized, redirecting to login")
+        if (error.message.includes("unauthorized") || error.message.includes("invalid token")) {
           localStorage.removeItem("token")
           localStorage.removeItem("user")
           navigate("/login")
           return
         }
-
-        setError("Failed to load profile data. Please try again later.")
-        toast.error("Failed to load profile data")
+        throw error
       }
     } catch (error) {
-      console.error("Error in fetchUserProfile:", error)
-      setError("An unexpected error occurred. Please try again later.")
+      console.error("Error fetching profile:", error)
       toast.error("Failed to load profile data")
-    } finally {
-      setIsLoading(false)
     }
   }
 
   useEffect(() => {
-    console.log("Dashboard component mounted")
     fetchUserProfile()
 
     const handleResize = () => {
@@ -615,51 +556,10 @@ export default function Dashboard() {
     setCurrentPage(1) // Reset to first page on new filter
   }
 
-  if (isLoading) {
+  if (!user) {
     return (
       <div className="flex justify-center items-center min-h-screen">
         <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-primary"></div>
-      </div>
-    )
-  }
-
-  if (error) {
-    return (
-      <div className="flex flex-col justify-center items-center min-h-screen">
-        <div className="text-red-500 text-xl mb-4">{error}</div>
-        <button
-          className="px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-600"
-          onClick={() => {
-            setError(null)
-            fetchUserProfile()
-          }}
-        >
-          Try Again
-        </button>
-        <button
-          className="px-4 py-2 mt-2 bg-gray-500 text-white rounded hover:bg-gray-600"
-          onClick={() => {
-            localStorage.removeItem("token")
-            localStorage.removeItem("user")
-            navigate("/login")
-          }}
-        >
-          Back to Login
-        </button>
-      </div>
-    )
-  }
-
-  if (!user) {
-    return (
-      <div className="flex flex-col justify-center items-center min-h-screen">
-        <div className="text-red-500 text-xl mb-4">User not found. Please log in again.</div>
-        <button
-          className="px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-600"
-          onClick={() => navigate("/login")}
-        >
-          Go to Login
-        </button>
       </div>
     )
   }
