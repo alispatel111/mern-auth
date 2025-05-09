@@ -11,7 +11,7 @@ import {
   processGoogleCredential,
 } from "../utils/googleAuth"
 import "../styles/login.css"
-import { API_ENDPOINTS, makeRequest } from "../server.js"
+import { API_ENDPOINTS } from "../server.js"
 
 export default function Login() {
   const [formData, setFormData] = useState({
@@ -113,16 +113,6 @@ export default function Login() {
 
     try {
       console.log("Attempting login with:", { email: formData.email, password: "***" })
-      console.log("Login endpoint:", API_ENDPOINTS.LOGIN)
-
-      // Test the API connection first
-      try {
-        const testResponse = await fetch(API_ENDPOINTS.TEST)
-        const testText = await testResponse.text()
-        console.log("Test API response:", testText)
-      } catch (testError) {
-        console.error("Test API failed:", testError)
-      }
 
       // Make the login request
       const response = await fetch(API_ENDPOINTS.LOGIN, {
@@ -131,6 +121,7 @@ export default function Login() {
           "Content-Type": "application/json",
         },
         body: JSON.stringify(formData),
+        credentials: "include",
       })
 
       // Log the raw response for debugging
@@ -184,10 +175,19 @@ export default function Login() {
 
     setIsResendingVerification(true)
     try {
-      await makeRequest(API_ENDPOINTS.RESEND_VERIFICATION, {
+      const response = await fetch(API_ENDPOINTS.RESEND_VERIFICATION, {
         method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
         body: JSON.stringify({ email: verificationEmail }),
       })
+
+      const data = await response.json()
+
+      if (!response.ok) {
+        throw new Error(data.message || "Failed to resend verification email")
+      }
 
       toast.success("Verification email has been resent. Please check your inbox.")
     } catch (error) {
