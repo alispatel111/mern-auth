@@ -3,7 +3,7 @@
 import { useState, useEffect } from "react"
 import { Link, useNavigate, useLocation } from "react-router-dom"
 import { toast } from "react-hot-toast"
-import { LogIn, Mail, Lock, Eye, EyeOff, AlertCircle } from "lucide-react"
+import { LogIn, Mail, Lock, Eye, EyeOff, AlertCircle, Loader } from "lucide-react"
 import {
   loadGoogleScript,
   initializeGoogleClient,
@@ -24,6 +24,7 @@ export default function Login() {
   const [needsVerification, setNeedsVerification] = useState(false)
   const [verificationEmail, setVerificationEmail] = useState("")
   const [isResendingVerification, setIsResendingVerification] = useState(false)
+  const [networkError, setNetworkError] = useState(null)
   const navigate = useNavigate()
   const location = useLocation()
 
@@ -78,6 +79,10 @@ export default function Login() {
     if (errors[name]) {
       setErrors({ ...errors, [name]: "" })
     }
+    // Clear network error when user types
+    if (networkError) {
+      setNetworkError(null)
+    }
   }
 
   const validateForm = () => {
@@ -110,9 +115,22 @@ export default function Login() {
     }
 
     setIsLoading(true)
+    setNetworkError(null)
 
     try {
       console.log("Attempting login with:", { email: formData.email, password: "***" })
+
+      // First, test the API connection
+      try {
+        await fetch(`${API_ENDPOINTS.TEST}?t=${Date.now()}`, {
+          method: "GET",
+          mode: "cors",
+          cache: "no-cache",
+        })
+      } catch (testError) {
+        console.error("API connection test failed:", testError)
+        throw new Error("Unable to connect to the server. Please check your internet connection and try again.")
+      }
 
       // Make the login request
       const response = await fetch(API_ENDPOINTS.LOGIN, {
@@ -122,6 +140,8 @@ export default function Login() {
         },
         body: JSON.stringify(formData),
         credentials: "include",
+        mode: "cors",
+        cache: "no-cache",
       })
 
       // Log the raw response for debugging
@@ -151,13 +171,20 @@ export default function Login() {
       navigate("/dashboard")
     } catch (error) {
       console.error("Login error:", error)
-      toast.error(error.message || "Login failed")
-      setErrors({ general: error.message || "Login failed" })
 
-      // Check if the user needs to verify their email
-      if (error.message && error.message.includes("verify your email")) {
-        setNeedsVerification(true)
-        setVerificationEmail(formData.email)
+      if (error.message.includes("Failed to fetch") || error.message.includes("Unable to connect")) {
+        setNetworkError(
+          "Network error: Unable to connect to the server. Please check your internet connection and try again.",
+        )
+      } else {
+        toast.error(error.message || "Login failed")
+        setErrors({ general: error.message || "Login failed" })
+
+        // Check if the user needs to verify their email
+        if (error.message && error.message.includes("verify your email")) {
+          setNeedsVerification(true)
+          setVerificationEmail(formData.email)
+        }
       }
 
       // Add shake animation to form
@@ -181,6 +208,9 @@ export default function Login() {
           "Content-Type": "application/json",
         },
         body: JSON.stringify({ email: verificationEmail }),
+        credentials: "include",
+        mode: "cors",
+        cache: "no-cache",
       })
 
       const data = await response.json()
@@ -218,6 +248,13 @@ export default function Login() {
           </div>
 
           <div className="auth-content">
+            {networkError && (
+              <div className="alert alert-error slide-in-right">
+                <AlertCircle className="alert-icon" />
+                <span className="alert-message">{networkError}</span>
+              </div>
+            )}
+
             {needsVerification ? (
               <div className="verification-needed-container">
                 <div className="verification-icon-container">
@@ -256,19 +293,7 @@ export default function Login() {
               <form onSubmit={handleSubmit} className="space-y-4">
                 {errors.general && (
                   <div className="alert alert-error slide-in-right">
-                    <svg
-                      className="alert-icon"
-                      viewBox="0 0 24 24"
-                      fill="none"
-                      stroke="currentColor"
-                      strokeWidth="2"
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                    >
-                      <circle cx="12" cy="12" r="10"></circle>
-                      <line x1="12" y1="8" x2="12" y2="12"></line>
-                      <line x1="12" y1="16" x2="12.01" y2="16"></line>
-                    </svg>
+                    <AlertCircle className="alert-icon" size={18} />
                     <span className="alert-message">{errors.general}</span>
                   </div>
                 )}
@@ -328,7 +353,7 @@ export default function Login() {
                 <button type="submit" className="btn btn-primary login-button" disabled={isLoading}>
                   {isLoading ? (
                     <>
-                      <div className="login-loading"></div>
+                      <Loader className="animate-spin" />
                       <span>Signing in...</span>
                     </>
                   ) : (
