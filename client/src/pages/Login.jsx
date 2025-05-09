@@ -3,7 +3,7 @@
 import { useState, useEffect } from "react"
 import { Link, useNavigate, useLocation } from "react-router-dom"
 import { toast } from "react-hot-toast"
-import { LogIn, Mail, Lock, Eye, EyeOff, AlertCircle, Loader } from "lucide-react"
+import { LogIn, Mail, Lock, Eye, EyeOff, AlertCircle } from "lucide-react"
 import {
   loadGoogleScript,
   initializeGoogleClient,
@@ -11,7 +11,7 @@ import {
   processGoogleCredential,
 } from "../utils/googleAuth"
 import "../styles/login.css"
-import { API_ENDPOINTS } from "../server.js"
+import { API_ENDPOINTS, makeRequest } from "../server.js"
 
 export default function Login() {
   const [formData, setFormData] = useState({
@@ -24,7 +24,6 @@ export default function Login() {
   const [needsVerification, setNeedsVerification] = useState(false)
   const [verificationEmail, setVerificationEmail] = useState("")
   const [isResendingVerification, setIsResendingVerification] = useState(false)
-  const [networkError, setNetworkError] = useState(null)
   const navigate = useNavigate()
   const location = useLocation()
 
@@ -79,10 +78,6 @@ export default function Login() {
     if (errors[name]) {
       setErrors({ ...errors, [name]: "" })
     }
-    // Clear network error when user types
-    if (networkError) {
-      setNetworkError(null)
-    }
   }
 
   const validateForm = () => {
@@ -115,21 +110,18 @@ export default function Login() {
     }
 
     setIsLoading(true)
-    setNetworkError(null)
 
     try {
       console.log("Attempting login with:", { email: formData.email, password: "***" })
+      console.log("Login endpoint:", API_ENDPOINTS.LOGIN)
 
-      // First, test the API connection
+      // Test the API connection first
       try {
-        await fetch(`${API_ENDPOINTS.TEST}?t=${Date.now()}`, {
-          method: "GET",
-          mode: "cors",
-          cache: "no-cache",
-        })
+        const testResponse = await fetch(API_ENDPOINTS.TEST)
+        const testText = await testResponse.text()
+        console.log("Test API response:", testText)
       } catch (testError) {
-        console.error("API connection test failed:", testError)
-        throw new Error("Unable to connect to the server. Please check your internet connection and try again.")
+        console.error("Test API failed:", testError)
       }
 
       // Make the login request
@@ -139,9 +131,6 @@ export default function Login() {
           "Content-Type": "application/json",
         },
         body: JSON.stringify(formData),
-        credentials: "include",
-        mode: "cors",
-        cache: "no-cache",
       })
 
       // Log the raw response for debugging
@@ -171,20 +160,13 @@ export default function Login() {
       navigate("/dashboard")
     } catch (error) {
       console.error("Login error:", error)
+      toast.error(error.message || "Login failed")
+      setErrors({ general: error.message || "Login failed" })
 
-      if (error.message.includes("Failed to fetch") || error.message.includes("Unable to connect")) {
-        setNetworkError(
-          "Network error: Unable to connect to the server. Please check your internet connection and try again.",
-        )
-      } else {
-        toast.error(error.message || "Login failed")
-        setErrors({ general: error.message || "Login failed" })
-
-        // Check if the user needs to verify their email
-        if (error.message && error.message.includes("verify your email")) {
-          setNeedsVerification(true)
-          setVerificationEmail(formData.email)
-        }
+      // Check if the user needs to verify their email
+      if (error.message && error.message.includes("verify your email")) {
+        setNeedsVerification(true)
+        setVerificationEmail(formData.email)
       }
 
       // Add shake animation to form
@@ -202,22 +184,10 @@ export default function Login() {
 
     setIsResendingVerification(true)
     try {
-      const response = await fetch(API_ENDPOINTS.RESEND_VERIFICATION, {
+      await makeRequest(API_ENDPOINTS.RESEND_VERIFICATION, {
         method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
         body: JSON.stringify({ email: verificationEmail }),
-        credentials: "include",
-        mode: "cors",
-        cache: "no-cache",
       })
-
-      const data = await response.json()
-
-      if (!response.ok) {
-        throw new Error(data.message || "Failed to resend verification email")
-      }
 
       toast.success("Verification email has been resent. Please check your inbox.")
     } catch (error) {
@@ -248,13 +218,6 @@ export default function Login() {
           </div>
 
           <div className="auth-content">
-            {networkError && (
-              <div className="alert alert-error slide-in-right">
-                <AlertCircle className="alert-icon" />
-                <span className="alert-message">{networkError}</span>
-              </div>
-            )}
-
             {needsVerification ? (
               <div className="verification-needed-container">
                 <div className="verification-icon-container">
@@ -293,7 +256,19 @@ export default function Login() {
               <form onSubmit={handleSubmit} className="space-y-4">
                 {errors.general && (
                   <div className="alert alert-error slide-in-right">
-                    <AlertCircle className="alert-icon" size={18} />
+                    <svg
+                      className="alert-icon"
+                      viewBox="0 0 24 24"
+                      fill="none"
+                      stroke="currentColor"
+                      strokeWidth="2"
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                    >
+                      <circle cx="12" cy="12" r="10"></circle>
+                      <line x1="12" y1="8" x2="12" y2="12"></line>
+                      <line x1="12" y1="16" x2="12.01" y2="16"></line>
+                    </svg>
                     <span className="alert-message">{errors.general}</span>
                   </div>
                 )}
@@ -353,7 +328,7 @@ export default function Login() {
                 <button type="submit" className="btn btn-primary login-button" disabled={isLoading}>
                   {isLoading ? (
                     <>
-                      <Loader className="animate-spin" />
+                      <div className="login-loading"></div>
                       <span>Signing in...</span>
                     </>
                   ) : (
