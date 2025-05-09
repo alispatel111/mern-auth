@@ -10,6 +10,17 @@ import fs from "fs"
 // Load environment variables
 dotenv.config()
 
+// Log environment variables (excluding sensitive ones)
+console.log("Environment variables loaded:", {
+  NODE_ENV: process.env.NODE_ENV,
+  PORT: process.env.PORT,
+  CLIENT_URL: process.env.CLIENT_URL,
+  MONGODB_URI: process.env.MONGODB_URI ? "Set" : "Not set",
+  JWT_SECRET: process.env.JWT_SECRET ? "Set" : "Not set",
+  EMAIL_USER: process.env.EMAIL_USER ? "Set" : "Not set",
+  EMAIL_PASSWORD: process.env.EMAIL_PASSWORD ? "Set" : "Not set",
+})
+
 // Fix Mongoose deprecation warning
 mongoose.set("strictQuery", false)
 
@@ -32,6 +43,8 @@ app.use(express.urlencoded({ limit: "50mb", extended: true }))
 // Debug middleware to log requests
 app.use((req, res, next) => {
   console.log(`${req.method} ${req.originalUrl}`)
+  console.log("Request headers:", req.headers)
+
   // Log request body for POST requests (but truncate if too large)
   if (req.method === "POST" || req.method === "PUT") {
     const bodyClone = { ...req.body }
@@ -46,7 +59,7 @@ app.use((req, res, next) => {
 
 // Connect to MongoDB with better error handling
 mongoose
-  .connect(process.env.MONGODB_URI || "mongodb://localhost:27017/mern-auth", {
+  .connect(process.env.MONGODB_URI, {
     useNewUrlParser: true,
     useUnifiedTopology: true,
     serverSelectionTimeoutMS: 5000, // Timeout after 5s instead of 30s
@@ -55,7 +68,11 @@ mongoose
   .catch((err) => {
     console.error("MongoDB connection error:", err)
     // Write to a file that Vercel can access in the logs
-    fs.writeFileSync("/tmp/mongodb-error.log", JSON.stringify(err, null, 2))
+    try {
+      fs.writeFileSync("/tmp/mongodb-error.log", JSON.stringify(err, null, 2))
+    } catch (fileErr) {
+      console.error("Could not write to error log file:", fileErr)
+    }
   })
 
 // API routes
@@ -68,24 +85,29 @@ app.get("/api/test", (req, res) => {
 
 // Add a detailed health check endpoint
 app.get("/api/health", (req, res) => {
-  const health = {
-    status: "ok",
-    timestamp: new Date(),
-    environment: process.env.NODE_ENV,
-    mongodb: mongoose.connection.readyState === 1 ? "connected" : "disconnected",
-    uptime: process.uptime(),
-    memory: process.memoryUsage(),
-    env_vars: {
-      NODE_ENV: process.env.NODE_ENV,
-      // Don't include sensitive variables like MONGODB_URI or JWT_SECRET
-      MONGODB_URI: process.env.MONGODB_URI ? "set" : "not set",
-      JWT_SECRET: process.env.JWT_SECRET ? "set" : "not set",
-      EMAIL_USER: process.env.EMAIL_USER ? "set" : "not set",
-      EMAIL_PASSWORD: process.env.EMAIL_PASSWORD ? "set" : "not set",
-      CLIENT_URL: process.env.CLIENT_URL || "not set",
-    },
+  try {
+    const health = {
+      status: "ok",
+      timestamp: new Date(),
+      environment: process.env.NODE_ENV,
+      mongodb: mongoose.connection.readyState === 1 ? "connected" : "disconnected",
+      uptime: process.uptime(),
+      memory: process.memoryUsage(),
+      env_vars: {
+        NODE_ENV: process.env.NODE_ENV,
+        // Don't include sensitive variables like MONGODB_URI or JWT_SECRET
+        MONGODB_URI: process.env.MONGODB_URI ? "set" : "not set",
+        JWT_SECRET: process.env.JWT_SECRET ? "set" : "not set",
+        EMAIL_USER: process.env.EMAIL_USER ? "set" : "not set",
+        EMAIL_PASSWORD: process.env.EMAIL_PASSWORD ? "set" : "not set",
+        CLIENT_URL: process.env.CLIENT_URL || "not set",
+      },
+    }
+    res.status(200).json(health)
+  } catch (error) {
+    console.error("Error in health check endpoint:", error)
+    res.status(500).json({ message: "Health check failed", error: error.message })
   }
-  res.status(200).json(health)
 })
 
 // Root route for testing
