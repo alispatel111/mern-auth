@@ -207,6 +207,7 @@ const Signup = () => {
           email: formData.email,
           password: formData.password,
         }),
+        credentials: "include",
       })
 
       // Log the raw response for debugging
