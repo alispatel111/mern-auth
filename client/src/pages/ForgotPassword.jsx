@@ -5,7 +5,7 @@ import { Link, useNavigate } from "react-router-dom"
 import { toast } from "react-hot-toast"
 import { Mail, ArrowLeft, Send, CheckCircle, KeyRound } from "lucide-react"
 import "../styles/forgot-password.css"
-import { API_ENDPOINTS, makeRequest } from "../server.js"
+import { API_ENDPOINTS } from "../server.js"
 
 export default function ForgotPassword() {
   const [email, setEmail] = useState("")
@@ -106,16 +106,41 @@ export default function ForgotPassword() {
     setIsLoading(true)
 
     try {
-      await makeRequest(API_ENDPOINTS.FORGOT_PASSWORD, {
+      console.log("Requesting OTP for email:", email)
+
+      // Make the forgot password request
+      const response = await fetch(API_ENDPOINTS.FORGOT_PASSWORD, {
         method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
         body: JSON.stringify({ email }),
       })
 
+      // Log the raw response for debugging
+      const responseText = await response.text()
+      console.log("Raw forgot password response:", responseText)
+
+      // Parse the response
+      let data
+      try {
+        data = JSON.parse(responseText)
+      } catch (e) {
+        throw new Error(`Server returned invalid JSON: ${responseText.substring(0, 100)}...`)
+      }
+
+      // Check if response is ok
+      if (!response.ok) {
+        throw new Error(data.message || `Request failed with status ${response.status}`)
+      }
+
+      console.log("OTP request successful:", data)
       toast.success("OTP sent to your email address")
       setStep(2)
     } catch (error) {
-      toast.error(error.message)
-      setErrors({ general: error.message })
+      console.error("Forgot password error:", error)
+      toast.error(error.message || "Failed to send OTP")
+      setErrors({ general: error.message || "Failed to send OTP" })
 
       // Add shake animation to form
       document.querySelector("form").classList.add("shake")
@@ -142,17 +167,42 @@ export default function ForgotPassword() {
     setIsLoading(true)
 
     try {
-      const data = await makeRequest(API_ENDPOINTS.VERIFY_OTP, {
+      console.log("Verifying OTP:", { email, otp })
+
+      // Make the verify OTP request
+      const response = await fetch(API_ENDPOINTS.VERIFY_OTP, {
         method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
         body: JSON.stringify({ email, otp }),
       })
 
+      // Log the raw response for debugging
+      const responseText = await response.text()
+      console.log("Raw verify OTP response:", responseText)
+
+      // Parse the response
+      let data
+      try {
+        data = JSON.parse(responseText)
+      } catch (e) {
+        throw new Error(`Server returned invalid JSON: ${responseText.substring(0, 100)}...`)
+      }
+
+      // Check if response is ok
+      if (!response.ok) {
+        throw new Error(data.message || `Request failed with status ${response.status}`)
+      }
+
+      console.log("OTP verification successful:", data)
       toast.success("OTP verified successfully")
       setResetToken(data.resetToken)
       setStep(3)
     } catch (error) {
-      toast.error(error.message)
-      setErrors({ general: error.message })
+      console.error("Verify OTP error:", error)
+      toast.error(error.message || "Failed to verify OTP")
+      setErrors({ general: error.message || "Failed to verify OTP" })
 
       // Add shake animation to form
       document.querySelector("form").classList.add("shake")
@@ -179,10 +229,35 @@ export default function ForgotPassword() {
     setIsLoading(true)
 
     try {
-      const data = await makeRequest(API_ENDPOINTS.RESET_PASSWORD, {
+      console.log("Resetting password with token:", resetToken)
+
+      // Make the reset password request
+      const response = await fetch(API_ENDPOINTS.RESET_PASSWORD, {
         method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
         body: JSON.stringify({ token: resetToken, password: newPassword }),
       })
+
+      // Log the raw response for debugging
+      const responseText = await response.text()
+      console.log("Raw reset password response:", responseText)
+
+      // Parse the response
+      let data
+      try {
+        data = JSON.parse(responseText)
+      } catch (e) {
+        throw new Error(`Server returned invalid JSON: ${responseText.substring(0, 100)}...`)
+      }
+
+      // Check if response is ok
+      if (!response.ok) {
+        throw new Error(data.message || `Request failed with status ${response.status}`)
+      }
+
+      console.log("Password reset successful:", data)
 
       // Auto-login: Store token and user data
       if (data.token && data.user) {
@@ -201,8 +276,9 @@ export default function ForgotPassword() {
         navigate("/login")
       }
     } catch (error) {
-      toast.error(error.message)
-      setErrors({ general: error.message })
+      console.error("Reset password error:", error)
+      toast.error(error.message || "Failed to reset password")
+      setErrors({ general: error.message || "Failed to reset password" })
 
       // Add shake animation to form
       document.querySelector("form").classList.add("shake")
