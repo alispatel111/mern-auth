@@ -124,10 +124,31 @@ export default function Login() {
         console.error("Test API failed:", testError)
       }
 
-      const data = await makeRequest(API_ENDPOINTS.LOGIN, {
+      // Make the login request
+      const response = await fetch(API_ENDPOINTS.LOGIN, {
         method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
         body: JSON.stringify(formData),
       })
+
+      // Log the raw response for debugging
+      const responseText = await response.text()
+      console.log("Raw login response:", responseText)
+
+      // Parse the response
+      let data
+      try {
+        data = JSON.parse(responseText)
+      } catch (e) {
+        throw new Error(`Server returned invalid JSON: ${responseText.substring(0, 100)}...`)
+      }
+
+      // Check if response is ok
+      if (!response.ok) {
+        throw new Error(data.message || `Request failed with status ${response.status}`)
+      }
 
       console.log("Login successful, received data:", data)
 
