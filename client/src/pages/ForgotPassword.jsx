@@ -115,6 +115,7 @@ export default function ForgotPassword() {
           "Content-Type": "application/json",
         },
         body: JSON.stringify({ email }),
+        credentials: "include",
       })
 
       // Log the raw response for debugging
@@ -176,6 +177,7 @@ export default function ForgotPassword() {
           "Content-Type": "application/json",
         },
         body: JSON.stringify({ email, otp }),
+        credentials: "include",
       })
 
       // Log the raw response for debugging
@@ -238,6 +240,7 @@ export default function ForgotPassword() {
           "Content-Type": "application/json",
         },
         body: JSON.stringify({ token: resetToken, password: newPassword }),
+        credentials: "include",
       })
 
       // Log the raw response for debugging
