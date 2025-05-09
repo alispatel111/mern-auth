@@ -11,6 +11,10 @@ const router = express.Router()
 // Debug middleware to log route access
 router.use((req, res, next) => {
   console.log(`Auth route accessed: ${req.method} ${req.originalUrl}`)
+  console.log("Request headers:", req.headers)
+  if (req.method === "POST") {
+    console.log("Request body:", req.body)
+  }
   next()
 })
 
@@ -132,16 +136,25 @@ router.post("/resend-verification", async (req, res) => {
 // Login route
 router.post("/login", async (req, res) => {
   try {
+    console.log("Login attempt received:", req.body)
+
     const { email, password } = req.body
+
+    if (!email || !password) {
+      console.log("Missing email or password")
+      return res.status(400).json({ message: "Email and password are required" })
+    }
 
     // Find user by email
     const user = await User.findOne({ email })
     if (!user) {
+      console.log("User not found:", email)
       return res.status(401).json({ message: "Invalid email or password" })
     }
 
     // Check if user is verified
     if (!user.isVerified) {
+      console.log("User not verified:", email)
       return res.status(401).json({
         message: "Please verify your email before logging in",
         needsVerification: true,
@@ -153,10 +166,12 @@ router.post("/login", async (req, res) => {
     if (user.password) {
       const isMatch = await user.comparePassword(password)
       if (!isMatch) {
+        console.log("Password doesn't match for user:", email)
         return res.status(401).json({ message: "Invalid email or password" })
       }
     } else {
       // If user doesn't have a password (Google user), they can't log in with password
+      console.log("Google user attempting password login:", email)
       return res.status(401).json({ message: "Please log in with Google" })
     }
 
@@ -179,11 +194,17 @@ router.post("/login", async (req, res) => {
       socialLinks: user.socialLinks,
     }
 
+    console.log("Login successful for user:", email)
     res.json({ token, user: userResponse })
   } catch (error) {
     console.error("Login error:", error)
     res.status(500).json({ message: "Error during login" })
   }
+})
+
+// Add a test login route for debugging
+router.get("/login-test", (req, res) => {
+  res.json({ message: "Login endpoint is working!" })
 })
 
 // Google OAuth routes
