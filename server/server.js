@@ -5,6 +5,7 @@ import cors from "cors"
 import authRoutes from "./routes/auth.js"
 import path from "path"
 import { fileURLToPath } from "url"
+import fs from "fs"
 
 // Load environment variables
 dotenv.config()
@@ -16,7 +17,12 @@ mongoose.set("strictQuery", false)
 const app = express()
 
 // Middleware
-app.use(cors())
+app.use(
+  cors({
+    origin: ["http://localhost:5173", "https://mern-auth-app-client.vercel.app", "*"],
+    credentials: true,
+  }),
+)
 
 // Increase the body parser limit to handle larger payloads (like base64 images)
 app.use(express.json({ limit: "50mb" }))
@@ -37,18 +43,48 @@ app.use((req, res, next) => {
   next()
 })
 
-// Connect to MongoDB
+// Connect to MongoDB with better error handling
 mongoose
-  .connect(process.env.MONGODB_URI || "mongodb://localhost:27017/mern-auth")
+  .connect(process.env.MONGODB_URI || "mongodb://localhost:27017/mern-auth", {
+    useNewUrlParser: true,
+    useUnifiedTopology: true,
+    serverSelectionTimeoutMS: 5000, // Timeout after 5s instead of 30s
+  })
   .then(() => console.log("Connected to MongoDB"))
-  .catch((err) => console.error("MongoDB connection error:", err))
+  .catch((err) => {
+    console.error("MongoDB connection error:", err)
+    // Write to a file that Vercel can access in the logs
+    fs.writeFileSync("/tmp/mongodb-error.log", JSON.stringify(err, null, 2))
+  })
 
 // API routes
-app.use("/", authRoutes)
+app.use("/api/auth", authRoutes)
 
 // Test route to verify server is working
-app.get("", (req, res) => {
+app.get("/api/test", (req, res) => {
   res.json({ message: "Server is working!" })
+})
+
+// Add a detailed health check endpoint
+app.get("/api/health", (req, res) => {
+  const health = {
+    status: "ok",
+    timestamp: new Date(),
+    environment: process.env.NODE_ENV,
+    mongodb: mongoose.connection.readyState === 1 ? "connected" : "disconnected",
+    uptime: process.uptime(),
+    memory: process.memoryUsage(),
+    env_vars: {
+      NODE_ENV: process.env.NODE_ENV,
+      // Don't include sensitive variables like MONGODB_URI or JWT_SECRET
+      MONGODB_URI: process.env.MONGODB_URI ? "set" : "not set",
+      JWT_SECRET: process.env.JWT_SECRET ? "set" : "not set",
+      EMAIL_USER: process.env.EMAIL_USER ? "set" : "not set",
+      EMAIL_PASSWORD: process.env.EMAIL_PASSWORD ? "set" : "not set",
+      CLIENT_URL: process.env.CLIENT_URL || "not set",
+    },
+  }
+  res.status(200).json(health)
 })
 
 // Route debugging - log all registered routes
@@ -71,6 +107,20 @@ app._router.stack.forEach((middleware) => {
 
 // Serve static files in production
 if (process.env.NODE_ENV === "production") {
+  // In Vercel, we don't need to serve static files here
+  // as Vercel handles this through the vercel.json configuration
+
+  // But we still need to handle API routes
+  app.all("*", (req, res, next) => {
+    if (req.path.startsWith("/api/")) {
+      next()
+    } else {
+      // For non-API routes, let Vercel handle it
+      res.status(404).json({ message: "API route not found" })
+    }
+  })
+} else {
+  // For local development, serve static files
   const __dirname = path.dirname(fileURLToPath(import.meta.url))
   app.use(express.static(path.join(__dirname, "../client/dist")))
 
@@ -79,13 +129,38 @@ if (process.env.NODE_ENV === "production") {
   })
 }
 
-app.get("/", (req, res) => {
-  res.send("Hello World");
-});
-
-// Error handling middleware
+// Error handling middleware - MUST be placed after all routes
 app.use((err, req, res, next) => {
-  console.error("Server error:", err.stack)
+  console.error("Server error:", err)
+
+  // Log error to a file that Vercel can access
+  try {
+    fs.writeFileSync(
+      "/tmp/server-error.log",
+      JSON.stringify(
+        {
+          message: err.message,
+          stack: err.stack,
+          time: new Date().toISOString(),
+        },
+        null,
+        2,
+      ),
+    )
+  } catch (fileErr) {
+    console.error("Could not write error to file:", fileErr)
+  }
+
+  // Send more detailed error in development
+  if (process.env.NODE_ENV !== "production") {
+    return res.status(500).json({
+      message: "Something went wrong!",
+      error: err.message,
+      stack: err.stack,
+    })
+  }
+
+  // Send generic error in production
   res.status(500).json({ message: "Something went wrong!" })
 })
 
