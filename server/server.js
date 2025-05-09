@@ -47,7 +47,7 @@ mongoose
 app.use("/api/auth", authRoutes)
 
 // Test route to verify server is working
-app.get("/", (req, res) => {
+app.get("https://mern-auth-amkyb3akn-alispatel111s-projects.vercel.app", (req, res) => {
   res.json({ message: "Server is working!" })
 })
 
